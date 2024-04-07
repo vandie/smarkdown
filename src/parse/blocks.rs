@@ -13,6 +13,7 @@ pub(crate) enum BlockType {
   BlockQuote,
   List(ListType),
   LineItem,
+  ThematicBreak,
 }
 
 #[derive(Debug, PartialEq)]
@@ -27,6 +28,7 @@ pub(crate) enum Block {
   LineItem {
     inner: Vec<Block>,
   },
+  ThematicBreak,
 }
 
 impl Block {
@@ -46,6 +48,7 @@ impl Block {
       BlockType::LineItem => Block::LineItem {
         inner: parse_tokens_with_context(&inner, context),
       },
+      BlockType::ThematicBreak => Block::ThematicBreak,
     }
   }
 
@@ -84,6 +87,7 @@ impl Block {
       Block::LineItem { inner, .. } => {
         format!("<li>{}</li>", Block::vec_as_html(inner, loose_mode))
       }
+      Block::ThematicBreak => "<hr />".to_string(),
     }
   }
 

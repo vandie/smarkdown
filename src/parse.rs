@@ -66,6 +66,11 @@ pub(crate) fn parse_tokens_with_context(
     // Now that we're sure of the block type, we can remove the line type indicators
     line.remove_starting_chars(&new_block_type);
 
+    // If this is a paragrpah we need to remove leading tabs and spaces
+    if new_block_type == BlockType::Paragraph {
+      line.remove_all_indentation();
+    }
+
     // Begin building new block
     if new_block_type != current_block_type {
       current_block_type = new_block_type

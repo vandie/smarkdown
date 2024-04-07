@@ -53,10 +53,30 @@ impl Line {
 
   /// Gets the block type for a line so that it can be parsed
   pub fn line_type(&self, fallback: BlockType) -> BlockType {
+    let overwritten_fallback = match fallback {
+      BlockType::ThematicBreak => BlockType::Paragraph,
+      _ => fallback,
+    };
+
     let mut current: Vec<TokenType> = vec![];
     for token in self.0.iter() {
       current.push(token.clone().into());
       match current.as_slice() {
+        [TokenType::Dash] => {
+          if self.is_all(&TokenType::Dash) {
+            return BlockType::ThematicBreak;
+          }
+        }
+        [TokenType::Underscore] => {
+          if self.is_all(&TokenType::Underscore) {
+            return BlockType::ThematicBreak;
+          }
+        }
+        [TokenType::Star] => {
+          if self.is_all(&TokenType::Star) {
+            return BlockType::ThematicBreak;
+          }
+        }
         [TokenType::CloseBracket(Bracket::Angle), TokenType::Space] => {
           return BlockType::BlockQuote
         }
@@ -72,7 +92,29 @@ impl Line {
         _ => {}
       }
     }
-    fallback
+
+    overwritten_fallback
+  }
+
+  fn to_token_types(&self) -> Vec<TokenType> {
+    self
+      .0
+      .iter()
+      .map(|t| Into::<TokenType>::into(t.clone()))
+      .collect()
+  }
+
+  /// Checks if a line is entirely a single token (with the exception of spaces and tabs)
+  /// Only really needed for ThematicBreaks as spaces and tabs are allowed between the characters.
+  fn is_all(&self, needle: &TokenType) -> bool {
+    let tokens = self.to_token_types();
+    let mut count = 0;
+    tokens.iter().all(|token| {
+      if token == needle {
+        count += 1
+      }
+      return token == needle || token == &TokenType::Space || token == &TokenType::Tab;
+    }) && count >= 3
   }
 
   /// Remove the starting chars that label a block as a given type

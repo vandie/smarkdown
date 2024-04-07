@@ -116,3 +116,10 @@ fn num_list_none_1() {
   let expected_html = "<ol start=\"3\">\n<li>item 1</li>\n<li>item 2</li>\n</ol>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
+
+#[test]
+fn thematic_break_basic() {
+  let example_string = "this is an example\n***\nand so it was";
+  let expected_html = "<p>this is an example</p>\n<hr />\n<p>and so it was</p>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
