@@ -5,18 +5,19 @@ mod inlines;
 mod line;
 mod list;
 
-use crate::lex::{lex, Token};
+use crate::tokeniser::{tokenise, Token};
 
 use self::{
-  blocks::{Block, BlockType, ListType},
+  blocks::{Block, BlockType},
   document::{DocContext, Document},
   helpers::should_recognise_blank_lines,
   inlines::Inline,
   line::Line,
+  list::ListType,
 };
 
 pub fn parse(md: &str) -> Document {
-  let tokens = lex(md);
+  let tokens = tokenise(md);
   parse_tokens(tokens)
 }
 
@@ -32,7 +33,7 @@ pub(crate) fn parse_tokens_with_context(
   tokens: &Vec<Token>,
   context: &mut DocContext,
 ) -> Vec<Block> {
-  let mut current_block_type: BlockType = BlockType::Paragraph;
+  let mut current_block_type: Option<BlockType> = None;
   let lines: &mut Vec<Line> = &mut tokens_to_lines(tokens);
   let mut blocks: Vec<Block> = vec![];
   let mut current_block: Vec<Token> = vec![];
@@ -40,30 +41,40 @@ pub(crate) fn parse_tokens_with_context(
   // Needed for lists
   let mut count = 0;
 
-  for (i, line) in lines.iter_mut().enumerate() {
+  for (_i, line) in lines.iter_mut().enumerate() {
+    // Reset Block Type
+    if current_block_type == Some(BlockType::Paragraph) && current_block.len() == 0 {
+      current_block_type = None;
+    }
+
     let blank_space = line.leading_spaces();
     line.trim_line_start(blank_space); // Remove up to 3 leading spaces before we grab the line_type
     let mut new_block_type = line.line_type(current_block_type);
 
-    // if this is a numbered list, the count needs to be checked as otherwise it becomes 2 lists
-    if is_num_list_continuation(&current_block_type, &new_block_type, count) {
-      count += 1;
-      new_block_type = current_block_type;
-    }
+    let mut handle_as_empty = false;
 
-    // Has the previous block concluded
-    let handle_as_empty = should_recognise_blank_lines(current_block_type) && line.is_empty();
-    let doesent_match = new_block_type.allow_takeover(current_block_type) == false
-      && new_block_type != current_block_type;
-    let has_enough_to_push = current_block_type.allow_empty() || current_block.len() > 0;
-    let should_terminate = handle_as_empty || doesent_match;
+    if current_block_type.is_some() {
+      let current_block_type = current_block_type.unwrap();
+      // if this is a numbered list, the count needs to be checked as otherwise it becomes 2 lists
+      if is_num_list_continuation(&current_block_type, &new_block_type, count) {
+        count += 1;
+        new_block_type = current_block_type;
+      }
 
-    // terminate existing block
-    if has_enough_to_push && should_terminate {
-      blocks.push(Block::new(current_block_type, current_block, context));
-      new_block_type = line.line_type(BlockType::Paragraph); // Recheck the new line type
-      current_block = vec![];
-      count = 0;
+      // Has the previous block concluded
+      handle_as_empty = should_recognise_blank_lines(current_block_type) && line.is_empty();
+      let doesent_match = new_block_type.allow_takeover(current_block_type) == false
+        && new_block_type != current_block_type;
+      let has_enough_to_push = current_block_type.allow_no_content() || current_block.len() > 0;
+      let should_terminate = handle_as_empty || doesent_match;
+
+      // terminate existing block
+      if has_enough_to_push && should_terminate {
+        blocks.push(Block::new(current_block_type, current_block, context));
+        new_block_type = line.line_type(None); // Recheck the new line type
+        current_block = vec![];
+        count = 0;
+      }
     }
 
     // Special handling for Setext Headers if the line before is empty
@@ -79,8 +90,8 @@ pub(crate) fn parse_tokens_with_context(
     line.remove_type_chars(&new_block_type);
 
     // Begin building new block
-    if new_block_type != current_block_type {
-      current_block_type = new_block_type
+    if Some(new_block_type) != current_block_type {
+      current_block_type = Some(new_block_type)
     }
 
     if handle_as_empty == false {
@@ -91,8 +102,12 @@ pub(crate) fn parse_tokens_with_context(
     }
   }
 
-  if current_block_type.allow_empty() || current_block.len() > 0 {
-    blocks.push(Block::new(current_block_type, current_block, context));
+  if current_block_type.is_some_and(|bt| bt.allow_no_content()) || current_block.len() > 0 {
+    blocks.push(Block::new(
+      current_block_type.unwrap(),
+      current_block,
+      context,
+    ));
   }
 
   blocks

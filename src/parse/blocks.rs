@@ -1,10 +1,13 @@
 use std::usize;
 
-use crate::{lex::Token, parse::tokens_to_lines};
+use crate::{parse::tokens_to_lines, tokeniser::Token};
 
 use super::{
-  document::DocContext, inlines::Inline, list::parse_line_items, parse_inlines,
-  parse_tokens_with_context,
+  document::DocContext,
+  helpers::trim_empty_lines,
+  inlines::Inline,
+  list::{parse_line_items, ListType},
+  parse_inlines, parse_tokens_with_context,
 };
 
 /// Types of block that appear in the stack
@@ -21,11 +24,12 @@ pub(crate) enum BlockType {
   Header(u8),
   /// Setext Header is a special case as it becomes a regular header once generated
   SetextHeader(u8),
+  IndentedCodeBlock,
 }
 
 impl BlockType {
   /// Can this block have no content?
-  pub fn allow_empty(&self) -> bool {
+  pub fn allow_no_content(&self) -> bool {
     match self {
       Self::Header(_) => true,
       Self::SetextHeader(_) => true, // In block creation we'll switch this into a ThematicBreak
@@ -57,6 +61,7 @@ pub(crate) enum Block {
   },
   ThematicBreak,
   Header(u8, Vec<Inline>),
+  IndentedCodeBlock(String),
 }
 
 impl Block {
@@ -93,6 +98,13 @@ impl Block {
         }
         Block::Header(level, parse_inlines(&true_inner, context))
       }
+      BlockType::IndentedCodeBlock => Block::IndentedCodeBlock(
+        trim_empty_lines(inner)
+          .iter()
+          .map(|i| Into::<String>::into(i.clone()))
+          .collect::<Vec<String>>()
+          .join(""),
+      ),
     }
   }
 
@@ -133,12 +145,16 @@ impl Block {
         )
       }
       Block::LineItem { inner, .. } => {
+        if loose_mode {
+          return format!("<li>\n{}\n</li>", Block::vec_as_html(inner, loose_mode));
+        }
         format!("<li>{}</li>", Block::vec_as_html(inner, loose_mode))
       }
       Block::ThematicBreak => "<hr />".to_string(),
       Block::Header(level, inner) => {
         format!("<h{level}>{}</h{level}>", Inline::vec_as_html(inner))
       }
+      Block::IndentedCodeBlock(inner) => format!("<pre><code>{inner}\n</code></pre>"),
     }
   }
 
@@ -150,13 +166,4 @@ impl Block {
     }
     html.join("\n")
   }
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub(crate) enum ListType {
-  Number(usize),
-  BracketedNumber(usize),
-  Dash,
-  Star,
-  Plus,
 }

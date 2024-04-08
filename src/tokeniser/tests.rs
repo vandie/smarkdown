@@ -1,6 +1,6 @@
-use crate::lex::{Bracket, VecNum};
+use crate::tokeniser::{Bracket, VecNum};
 
-use super::{lex, Token};
+use super::{tokenise, Token};
 
 #[test]
 fn lex_test() {
@@ -58,5 +58,5 @@ fn lex_test() {
     Token::NewLine,
     Token::Number(VecNum(vec![0, 1, 9])),
   ];
-  assert_eq!(lex(example_string), expected);
+  assert_eq!(tokenise(example_string), expected);
 }

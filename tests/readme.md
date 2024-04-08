@@ -1,2 +1,2 @@
 # Tests
-The tests in this directory are all taken from the [commonmark spec](https://spec.commonmark.org/0.31.2) to ensure that compatibility is as close to 100% as we can get.
+The tests in this directory are all taken from the [commonmark spec](https://spec.commonmark.org/0.31.2) to ensure that compatibility is as close to 100% as we can get. Theses tests have been manually created to match the spec. In future it would be worth automating this.

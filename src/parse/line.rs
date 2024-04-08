@@ -1,9 +1,9 @@
-use super::blocks::{BlockType, ListType};
-use crate::lex::{Bracket, Token, TokenType, VecNum};
+use super::{blocks::BlockType, list::ListType};
+use crate::tokeniser::{Bracket, Token, TokenType, VecNum};
 
 const TAB_SIZE: usize = 4;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Line(pub Vec<Token>);
 impl Line {
   // Returns true if the Line is empty
@@ -54,11 +54,18 @@ impl Line {
   /// Gets the block type for a line so that it can be parsed
   ///
   /// None Lazy fallbacks will be ignored
-  pub fn line_type(&self, fallback: BlockType) -> BlockType {
+  pub fn line_type(&self, previous_block: Option<BlockType>) -> BlockType {
     // We should only overwrite the fallback if the type is lazy
-    let fallback = match fallback {
-      BlockType::List(..) => fallback,
-      BlockType::BlockQuote => fallback,
+    let fallback = match previous_block {
+      Some(BlockType::List(..)) => previous_block.unwrap(),
+      Some(BlockType::BlockQuote) => previous_block.unwrap(),
+      Some(BlockType::IndentedCodeBlock) => {
+        if self.is_empty() {
+          return previous_block.unwrap();
+        }
+
+        BlockType::Paragraph
+      }
       _ => BlockType::Paragraph,
     };
 
@@ -119,9 +126,14 @@ impl Line {
             return BlockType::SetextHeader(1);
           }
         }
-        [TokenType::CloseBracket(Bracket::Angle), TokenType::Space] => {
-          return BlockType::BlockQuote
+        [TokenType::Space, TokenType::Space, TokenType::Space, TokenType::Space] => {
+          match previous_block {
+            Some(BlockType::List(..)) => continue,
+            Some(BlockType::Paragraph) => continue,
+            _ => return BlockType::IndentedCodeBlock,
+          };
         }
+        [TokenType::CloseBracket(Bracket::Angle)] => return BlockType::BlockQuote,
         [TokenType::Dash, TokenType::Space] => return BlockType::List(ListType::Dash),
         [TokenType::Plus, TokenType::Space] => return BlockType::List(ListType::Plus),
         [TokenType::Star, TokenType::Space] => return BlockType::List(ListType::Star),
@@ -201,10 +213,7 @@ impl Line {
           self.trim_line_start(leading_spaces + 1);
         } else {
           // as this is a continuation, we need to do some weirdness to stop certain types from being converted when parsed within a blockquote
-          if matches!(
-            self.line_type(BlockType::Paragraph),
-            BlockType::SetextHeader(..)
-          ) {
+          if matches!(self.line_type(None), BlockType::SetextHeader(..)) {
             self.stringify_line();
           }
         }
@@ -237,6 +246,11 @@ impl Line {
           self.0 = vec![];
         }
       }
+      BlockType::IndentedCodeBlock => {
+        if matches!(self.line_type(None), BlockType::IndentedCodeBlock) {
+          self.trim_line_start(4);
+        }
+      }
       _ => {}
     }
   }
@@ -254,14 +268,18 @@ impl Line {
 
   /// Removed 1 level of indentation from a line (1 Tab or 4 Spaces)
   pub fn unindent(&mut self) {
-    let indent = self.remove_all_indentation();
-    if indent == 0 {
+    if self.0.get(0) == Some(&Token::Tab) {
+      self.0.drain(0..1);
       return;
     }
-
-    let mut new = vec![Token::Tab; indent - 1];
-    new.append(&mut self.0);
-    self.0 = new;
+    let space_count = self
+      .0
+      .iter()
+      .position(|token| token != &Token::Space)
+      .unwrap_or(0);
+    if space_count >= 4 {
+      self.0.drain(0..4);
+    }
   }
 
   /// Removes a number of characters from the start of a line
@@ -270,12 +288,10 @@ impl Line {
   }
 
   pub fn find_first(&self, needle: TokenType) -> Option<usize> {
-    for (i, token) in self.0.iter().enumerate() {
-      if Into::<TokenType>::into(token.clone()) == needle {
-        return Some(i);
-      }
-    }
-    None
+    self
+      .0
+      .iter()
+      .position(|token| Into::<TokenType>::into(token.clone()) == needle)
   }
 
   pub fn stringify_line(&mut self) {

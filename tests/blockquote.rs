@@ -4,8 +4,7 @@ use smarkdown::parse;
 #[test]
 fn example_228() {
   let example_string = "> # Foo\n> bar\n> baz";
-  let expected_html =
-    "> # Foo\n> bar\n> baz\n\n<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>";
+  let expected_html = "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
 

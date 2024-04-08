@@ -1,6 +1,6 @@
 use crate::{
-  lex::Token,
   parse::{self, parse, tokens_to_lines},
+  tokeniser::Token,
 };
 
 use super::line::Line;
@@ -114,14 +114,14 @@ fn list_basic() {
 fn loose_list() {
   let example_string = "- item 1\n\n- item 2\n\t- sub item 1";
   let expected_html =
-    "<ul>\n<li><p>item 1</p></li>\n<li><p>item 2</p>\n<ul>\n<li>sub item 1</li>\n</ul></li>\n</ul>";
+    "<ul>\n<li>\n<p>item 1</p>\n</li>\n<li>\n<p>item 2</p>\n<ul>\n<li>sub item 1</li>\n</ul>\n</li>\n</ul>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
 
 #[test]
 fn single_level_list() {
   let example_string = "- item 1\n\n- item 2";
-  let expected_html = "<ul>\n<li><p>item 1</p></li>\n<li><p>item 2</p></li>\n</ul>";
+  let expected_html = "<ul>\n<li>\n<p>item 1</p>\n</li>\n<li>\n<p>item 2</p>\n</li>\n</ul>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
 

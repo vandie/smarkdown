@@ -4,7 +4,6 @@ pub use token::{Bracket, Token, TokenType, VecNum};
 /// Parses a single token onto a given token stack
 fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
   let mut last_token = token_list.last_mut();
-  let mut token: Token;
 
   // As per [spec](https://spec.commonmark.org/0.31.2/#backslash-escapes) Any ASCII punctuation character may be backslash-escaped
   // but Backslashes before other characters are treated as literal backslashes
@@ -20,7 +19,7 @@ fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
   }
 
   // What token is this?
-  token = match latest_char {
+  let mut token = match latest_char {
     '#' => Token::Hash,
     '!' => Token::Bang,
     '(' => Token::OpenBracket(Bracket::Parenthesis),
@@ -96,7 +95,7 @@ fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
 }
 
 /// Parses a markdown string into Tokens
-pub fn lex(markdown: &str) -> Vec<Token> {
+pub fn tokenise(markdown: &str) -> Vec<Token> {
   let mut tokens = vec![];
   for char in markdown.chars() {
     parse_token(&mut tokens, char);

@@ -1,15 +1,24 @@
 use crate::{
-  lex::{Token, TokenType},
   parse::list,
+  tokeniser::{Token, TokenType},
 };
 
 use self::super::{
-  blocks::{Block, BlockType, ListType},
+  blocks::{Block, BlockType},
   document::DocContext,
   line::Line,
 };
 
 use super::tokens_to_lines;
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub(crate) enum ListType {
+  Number(usize),
+  BracketedNumber(usize),
+  Dash,
+  Star,
+  Plus,
+}
 
 /// Special parsing for line items within a list. Shouldn't be called directly
 pub fn parse_line_items(
@@ -24,7 +33,6 @@ pub fn parse_line_items(
 
   for line in lines.iter_mut() {
     let new_line_item = is_new_list_item(line, list_type, count);
-    println!("{line:?} {new_line_item}");
     if new_line_item {
       count += 1;
       if current_block.len() > 0 {
@@ -55,15 +63,15 @@ pub fn parse_line_items(
 /// Determins if a line should be rendered as a new list item
 fn is_new_list_item(line: &Line, list_type: ListType, count: usize) -> bool {
   match list_type {
-    ListType::BracketedNumber(start) => match line.line_type(BlockType::Paragraph) {
+    ListType::BracketedNumber(start) => match line.line_type(None) {
       BlockType::List(ListType::BracketedNumber(cur_count)) => cur_count == start + count,
       _ => false,
     },
-    ListType::Number(start) => match line.line_type(BlockType::Paragraph) {
+    ListType::Number(start) => match line.line_type(None) {
       BlockType::List(ListType::Number(cur_count)) => cur_count == start + count,
       _ => false,
     },
-    _ => match line.line_type(BlockType::Paragraph) {
+    _ => match line.line_type(None) {
       BlockType::List(line_list_type) => line_list_type == list_type,
       _ => false,
     },
