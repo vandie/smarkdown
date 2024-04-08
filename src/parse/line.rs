@@ -56,7 +56,7 @@ impl Line {
   /// None Lazy fallbacks will be ignored
   pub fn line_type(&self, fallback: BlockType) -> BlockType {
     // We should only overwrite the fallback if the type is lazy
-    let overwritten_fallback = match fallback {
+    let fallback = match fallback {
       BlockType::List(..) => fallback,
       BlockType::BlockQuote => fallback,
       _ => BlockType::Paragraph,
@@ -67,17 +67,20 @@ impl Line {
       current.push(token.clone().into());
       match current.as_slice() {
         [TokenType::Dash] => {
-          if self.is_all(&TokenType::Dash) {
+          if fallback == BlockType::Paragraph && self.is_all(&TokenType::Dash, 1, false, true) {
+            return BlockType::SetextHeader(2);
+          }
+          if self.is_all(&TokenType::Dash, 3, true, true) {
             return BlockType::ThematicBreak;
           }
         }
         [TokenType::Underscore] => {
-          if self.is_all(&TokenType::Underscore) {
+          if self.is_all(&TokenType::Underscore, 3, true, true) {
             return BlockType::ThematicBreak;
           }
         }
         [TokenType::Star] => {
-          if self.is_all(&TokenType::Star) {
+          if self.is_all(&TokenType::Star, 3, true, true) {
             return BlockType::ThematicBreak;
           }
         }
@@ -111,6 +114,11 @@ impl Line {
             return BlockType::Header(6);
           }
         }
+        [TokenType::Equals] => {
+          if fallback == BlockType::Paragraph && self.is_all(&TokenType::Equals, 1, false, true) {
+            return BlockType::SetextHeader(1);
+          }
+        }
         [TokenType::CloseBracket(Bracket::Angle), TokenType::Space] => {
           return BlockType::BlockQuote
         }
@@ -127,7 +135,7 @@ impl Line {
       }
     }
 
-    overwritten_fallback
+    fallback
   }
 
   fn is_space(&self, i: usize) -> bool {
@@ -143,17 +151,42 @@ impl Line {
       .collect()
   }
 
-  /// Checks if a line is entirely a single token (with the exception of spaces and tabs)
-  /// Only really needed for ThematicBreaks as spaces and tabs are allowed between the characters.
-  fn is_all(&self, needle: &TokenType) -> bool {
+  /// Checks if a line is entirely made up of a single token with a few exceptions.
+  ///
+  /// if `allow_inline_blanks` is `true` then spaces and tabs between chars will be ignored
+  ///
+  /// if `allow_inline_blanks` is `false`, spaces and tabs between chars will triger a failure
+  ///
+  /// if `allow_trailing_blanks` is `true`, and `allow_inline_blanks` is `false` then spaces and tabs at
+  /// the end of a line will be ignored but only if no other characters exist within them
+  ///
+  /// if `allow_inline_blanks` is `true` then `allow_trailing_blanks` has no effect
+  fn is_all(
+    &self,
+    needle: &TokenType,
+    min_number: usize,
+    allow_inline_blanks: bool,
+    allow_trailing_blanks: bool,
+  ) -> bool {
     let tokens = self.to_token_types();
     let mut count = 0;
+    let mut on_trail: bool = false;
     tokens.iter().all(|token| {
       if token == needle {
         count += 1
       }
-      return token == needle || token == &TokenType::Space || token == &TokenType::Tab;
-    }) && count >= 3
+      if allow_trailing_blanks && !allow_inline_blanks {
+        if token == &TokenType::Space || token == &TokenType::Tab {
+          on_trail = true;
+          return true;
+        }
+        if on_trail && !(token == &TokenType::Space || token == &TokenType::Tab) {
+          return false;
+        }
+      }
+      return token == needle
+        || allow_inline_blanks && (token == &TokenType::Space || token == &TokenType::Tab);
+    }) && count >= min_number
   }
 
   /// Remove the starting chars that label a block as a given type
@@ -166,6 +199,14 @@ impl Line {
       BlockType::BlockQuote => {
         if self.0.get(leading_spaces) == Some(&Token::CloseBracket(Bracket::Angle)) {
           self.trim_line_start(leading_spaces + 1);
+        } else {
+          // as this is a continuation, we need to do some weirdness to stop certain types from being converted when parsed within a blockquote
+          if matches!(
+            self.line_type(BlockType::Paragraph),
+            BlockType::SetextHeader(..)
+          ) {
+            self.stringify_line();
+          }
         }
       }
       BlockType::Header(level) => {
@@ -188,6 +229,13 @@ impl Line {
           self.remove_ending_blanks();
         }
         self.remove_all_indentation();
+      }
+      BlockType::SetextHeader(_) => {
+        let is_l1 = self.is_all(&TokenType::Equals, 1, false, true);
+        let is_l2 = self.is_all(&TokenType::Dash, 1, false, true);
+        if is_l1 || is_l2 {
+          self.0 = vec![];
+        }
       }
       _ => {}
     }
@@ -228,6 +276,17 @@ impl Line {
       }
     }
     None
+  }
+
+  pub fn stringify_line(&mut self) {
+    self.0 = vec![Token::Text(
+      self
+        .0
+        .iter()
+        .map(|i| Into::<String>::into(i.clone()))
+        .collect::<Vec<String>>()
+        .join(""),
+    )];
   }
 }
 

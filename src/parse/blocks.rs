@@ -7,25 +7,42 @@ use super::{
   parse_tokens_with_context,
 };
 
+/// Types of block that appear in the stack
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub(crate) enum BlockType {
   Paragraph,
   BlockQuote,
   List(ListType),
+  /// An item in a list
   LineItem,
+  /// An `<hr>` tag
   ThematicBreak,
+  /// A header value from `h1`-`h6`
   Header(u8),
+  /// Setext Header is a special case as it becomes a regular header once generated
+  SetextHeader(u8),
 }
 
 impl BlockType {
+  /// Can this block have no content?
   pub fn allow_empty(&self) -> bool {
     match self {
       Self::Header(_) => true,
+      Self::SetextHeader(_) => true, // In block creation we'll switch this into a ThematicBreak
+      _ => false,
+    }
+  }
+
+  /// Can this block take over the passed block if after it in the stack
+  pub fn allow_takeover(&self, block_type: BlockType) -> bool {
+    match self {
+      Self::SetextHeader(_) => block_type == BlockType::Paragraph,
       _ => false,
     }
   }
 }
 
+/// A renderable Block of content
 #[derive(Debug, PartialEq)]
 pub(crate) enum Block {
   Paragraph(Vec<Inline>),
@@ -43,6 +60,7 @@ pub(crate) enum Block {
 }
 
 impl Block {
+  /// Creates a new renderable block after calling the correct parse method on inner tokens for that block
   pub fn new(block_type: BlockType, inner: Vec<Token>, context: &mut DocContext) -> Block {
     match block_type {
       BlockType::Paragraph => Block::Paragraph(parse_inlines(&inner, context)),
@@ -61,9 +79,27 @@ impl Block {
       },
       BlockType::ThematicBreak => Block::ThematicBreak,
       BlockType::Header(level) => Block::Header(level, parse_inlines(&inner, context)),
+      BlockType::SetextHeader(level) => {
+        // Due to weirdness with parsing where until it hit the Setext Line, this was a paragraph,
+        // there is a chance that a new line token made it through. It should be nipped in the bud here
+        let mut true_inner = inner.clone();
+        if true_inner.last() == Some(&Token::NewLine) {
+          true_inner.pop();
+        }
+
+        // This is a catch for when a thematic break is wrongly parsed as a setext header
+        if true_inner.len() == 0 {
+          return Block::new(BlockType::ThematicBreak, true_inner, context);
+        }
+        Block::Header(level, parse_inlines(&true_inner, context))
+      }
     }
   }
 
+  /// Convert a Renderable Block to HTML
+  ///
+  /// `loose_mode` should almost always be `true` as it determins if `<p>` tags
+  /// should be rendered or just spat out as plain text (as is required in lists at times)
   pub fn as_html(&self, loose_mode: bool) -> String {
     match self {
       Block::Paragraph(inlines) => match loose_mode {
@@ -106,6 +142,7 @@ impl Block {
     }
   }
 
+  /// Converts an array of Renderable Blocks into a single HTML String
   pub fn vec_as_html(blocks: &Vec<Self>, loose_mode: bool) -> String {
     let mut html: Vec<String> = vec![];
     for block in blocks {

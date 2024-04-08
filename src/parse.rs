@@ -53,8 +53,10 @@ pub(crate) fn parse_tokens_with_context(
 
     // Has the previous block concluded
     let handle_as_empty = should_recognise_blank_lines(current_block_type) && line.is_empty();
-    let should_terminate = handle_as_empty || new_block_type != current_block_type;
+    let doesent_match = new_block_type.allow_takeover(current_block_type) == false
+      && new_block_type != current_block_type;
     let has_enough_to_push = current_block_type.allow_empty() || current_block.len() > 0;
+    let should_terminate = handle_as_empty || doesent_match;
 
     // terminate existing block
     if has_enough_to_push && should_terminate {
@@ -62,6 +64,15 @@ pub(crate) fn parse_tokens_with_context(
       new_block_type = line.line_type(BlockType::Paragraph); // Recheck the new line type
       current_block = vec![];
       count = 0;
+    }
+
+    // Special handling for Setext Headers if the line before is empty
+    if current_block.len() == 0 {
+      new_block_type = match new_block_type {
+        BlockType::SetextHeader(1) => BlockType::Paragraph,
+        BlockType::SetextHeader(2) => BlockType::ThematicBreak,
+        _ => new_block_type,
+      };
     }
 
     // Now that we're sure of the block type, we can remove the line type indicators

@@ -6,11 +6,17 @@ fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
   let mut last_token = token_list.last_mut();
   let mut token: Token;
 
-  // Handle escaping if needed
-  let escaped = matches!(last_token, Some(Token::Escape));
-  if escaped {
-    token_list.pop(); // Remove the escape from the stack as it's been used
-    last_token = token_list.last_mut(); // Grab the new last token
+  // As per [spec](https://spec.commonmark.org/0.31.2/#backslash-escapes) Any ASCII punctuation character may be backslash-escaped
+  // but Backslashes before other characters are treated as literal backslashes
+  let mut escaped = false;
+  if last_token == Some(&mut Token::Escape) {
+    for escapable_char in "!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~".chars() {
+      if latest_char == escapable_char {
+        token_list.pop(); // Remove the escape from the stack as it's been used
+        last_token = token_list.last_mut(); // Grab the new last token
+        escaped = true;
+      }
+    }
   }
 
   // What token is this?
@@ -28,6 +34,7 @@ fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
     '*' => Token::Star,
     '-' => Token::Dash,
     '+' => Token::Plus,
+    '=' => Token::Equals,
     '.' => Token::Dot,
     '_' => Token::Underscore,
     '`' => Token::BackTick,
@@ -51,13 +58,6 @@ fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
       let mut char = latest_char;
       if char == '\u{0000}' {
         char = '\u{FFFD}';
-      }
-
-      // if the previous token was an escape token and this token is not one of the allowed punctuation symbols
-      // then add an additional escaped backslash to the string as per https://spec.commonmark.org/0.31.2/#backslash-escapes
-      // Some of these symbols will already be handled by the basic escape handler but this is a last defensive line
-      if escaped && ("!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~".contains(&char.to_string()) == false) {
-        text.push_str("\\");
       }
 
       // Convert the character to a text token
