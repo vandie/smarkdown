@@ -35,6 +35,7 @@ fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
     '\\' => Token::Escape,
     '\n' => Token::NewLine,
     '\t' => Token::Tab,
+    ' ' => Token::Space,
     // Below this point are tokens with a bit of weirdness to them as they aren't direct one to one mappings of characters
 
     // Numbers
@@ -43,11 +44,6 @@ fn parse_token(token_list: &mut Vec<Token>, latest_char: char) {
       _ => Token::Number(VecNum(vec![latest_char.to_string().parse::<u8>().unwrap()])), // otherwise attempt to parse the number
     },
 
-    // Space
-    ' ' => match last_token {
-      Some(Token::Text(..)) => Token::Text(" ".to_string()), // If the previous token is a string then the space is part of it
-      _ => Token::Space, // If the previous token is anything but a string, add a space token
-    },
     // This is a regular text char
     _ => {
       let mut text = String::new();

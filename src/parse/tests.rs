@@ -66,6 +66,28 @@ fn indentation_test() {
 }
 
 #[test]
+fn remove_blank_end() {
+  let mut line = Line(vec![
+    Token::Text("Hey".to_string()),
+    Token::Space,
+    Token::Space,
+  ]);
+  line.remove_ending_blanks();
+  assert_eq!(line, Line(vec![Token::Text("Hey".to_string())]));
+}
+
+#[test]
+fn remove_blank_start() {
+  let mut line = Line(vec![
+    Token::Space,
+    Token::Space,
+    Token::Text("Hey".to_string()),
+  ]);
+  line.trim_line_start(2);
+  assert_eq!(line, Line(vec![Token::Text("Hey".to_string())]));
+}
+
+#[test]
 fn paragraph_parse() {
   let example_string = "this is an example with two paragraphs.\nthis is part of the first paragraph still.\n\nWelcome to paragraph 2.";
   let expected_html = "<p>this is an example with two paragraphs.\nthis is part of the first paragraph still.</p>\n<p>Welcome to paragraph 2.</p>";
@@ -121,5 +143,12 @@ fn num_list_none_1() {
 fn thematic_break_basic() {
   let example_string = "this is an example\n***\nand so it was";
   let expected_html = "<p>this is an example</p>\n<hr />\n<p>and so it was</p>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
+
+#[test]
+fn header_basic() {
+  let example_string = "## Header 2\nthis is an example";
+  let expected_html = "<h2>Header 2</h2>\n<p>this is an example</p>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }

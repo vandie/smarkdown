@@ -14,6 +14,16 @@ pub(crate) enum BlockType {
   List(ListType),
   LineItem,
   ThematicBreak,
+  Header(u8),
+}
+
+impl BlockType {
+  pub fn allow_empty(&self) -> bool {
+    match self {
+      Self::Header(_) => true,
+      _ => false,
+    }
+  }
 }
 
 #[derive(Debug, PartialEq)]
@@ -29,6 +39,7 @@ pub(crate) enum Block {
     inner: Vec<Block>,
   },
   ThematicBreak,
+  Header(u8, Vec<Inline>),
 }
 
 impl Block {
@@ -49,6 +60,7 @@ impl Block {
         inner: parse_tokens_with_context(&inner, context),
       },
       BlockType::ThematicBreak => Block::ThematicBreak,
+      BlockType::Header(level) => Block::Header(level, parse_inlines(&inner, context)),
     }
   }
 
@@ -88,6 +100,9 @@ impl Block {
         format!("<li>{}</li>", Block::vec_as_html(inner, loose_mode))
       }
       Block::ThematicBreak => "<hr />".to_string(),
+      Block::Header(level, inner) => {
+        format!("<h{level}>{}</h{level}>", Inline::vec_as_html(inner))
+      }
     }
   }
 

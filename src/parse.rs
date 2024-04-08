@@ -54,9 +54,10 @@ pub(crate) fn parse_tokens_with_context(
     // Has the previous block concluded
     let handle_as_empty = should_recognise_blank_lines(current_block_type) && line.is_empty();
     let should_terminate = handle_as_empty || new_block_type != current_block_type;
+    let has_enough_to_push = current_block_type.allow_empty() || current_block.len() > 0;
 
     // terminate existing block
-    if current_block.len() > 0 && should_terminate {
+    if has_enough_to_push && should_terminate {
       blocks.push(Block::new(current_block_type, current_block, context));
       new_block_type = line.line_type(BlockType::Paragraph); // Recheck the new line type
       current_block = vec![];
@@ -64,12 +65,7 @@ pub(crate) fn parse_tokens_with_context(
     }
 
     // Now that we're sure of the block type, we can remove the line type indicators
-    line.remove_starting_chars(&new_block_type);
-
-    // If this is a paragrpah we need to remove leading tabs and spaces
-    if new_block_type == BlockType::Paragraph {
-      line.remove_all_indentation();
-    }
+    line.remove_type_chars(&new_block_type);
 
     // Begin building new block
     if new_block_type != current_block_type {
@@ -84,7 +80,7 @@ pub(crate) fn parse_tokens_with_context(
     }
   }
 
-  if current_block.len() > 0 {
+  if current_block_type.allow_empty() || current_block.len() > 0 {
     blocks.push(Block::new(current_block_type, current_block, context));
   }
 
