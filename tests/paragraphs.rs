@@ -55,7 +55,7 @@ fn example_225() {
   let expected_html = "<pre><code>aaa\n</code></pre>\n<p>bbb</p>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
-
+ 
 /// Final spaces or tabs are stripped before inline parsing, so a paragraph that ends with two or more spaces will not end with a [hard line break](https://spec.commonmark.org/0.31.2/#hard-line-break):
 #[test]
 fn example_226() {

@@ -72,7 +72,12 @@ impl Block {
       BlockType::BlockQuote => Block::BlockQuote(parse_tokens_with_context(&inner, context)),
       BlockType::List(list_type) => {
         let inner_blocks = parse_line_items(&inner, context, list_type);
-        let loose = tokens_to_lines(&inner).iter().any(|line| line.is_empty());
+        let lines = tokens_to_lines(&inner);
+        let loose = lines
+          .iter()
+          .position(|line| line.is_empty())
+          .is_some_and(|pos| pos + 1 != lines.len()); // there is an edge case where the last line is accidentally a new line, this is not a loose paragraph
+        println!("line: \"{inner:?}\" is looks - {loose}");
         Block::List {
           list_type,
           inner: inner_blocks,
@@ -145,10 +150,12 @@ impl Block {
         )
       }
       Block::LineItem { inner, .. } => {
-        if loose_mode {
-          return format!("<li>\n{}\n</li>", Block::vec_as_html(inner, loose_mode));
+        let blocks = Block::vec_as_html(inner, loose_mode);
+        println!("blocks: {}", inner.len());
+        if loose_mode == false && matches!(inner[..], [Block::Paragraph(..)]) {
+          return format!("<li>{blocks}</li>");
         }
-        format!("<li>{}</li>", Block::vec_as_html(inner, loose_mode))
+        return format!("<li>\n{blocks}\n</li>");
       }
       Block::ThematicBreak => "<hr />".to_string(),
       Block::Header(level, inner) => {

@@ -5,7 +5,10 @@ mod inlines;
 mod line;
 mod list;
 
-use crate::tokeniser::{tokenise, Token};
+use crate::{
+  parse::list::list_item_content_start,
+  tokeniser::{tokenise, Token},
+};
 
 use self::{
   blocks::{Block, BlockType},
@@ -37,6 +40,8 @@ pub(crate) fn parse_tokens_with_context(
   let lines: &mut Vec<Line> = &mut tokens_to_lines(tokens);
   let mut blocks: Vec<Block> = vec![];
   let mut current_block: Vec<Token> = vec![];
+  let mut continued_content_start = 0;
+  let mut last_line_empty = false;
 
   // Needed for lists
   let mut count = 0;
@@ -45,20 +50,39 @@ pub(crate) fn parse_tokens_with_context(
     // Reset Block Type
     if current_block_type == Some(BlockType::Paragraph) && current_block.len() == 0 {
       current_block_type = None;
+      continued_content_start = 0;
     }
 
-    let blank_space = line.leading_spaces();
+    let currently_in_list = matches!(current_block_type, Some(BlockType::List(..)));
+    let blank_space = line.unindented_leading_spaces();
     line.trim_line_start(blank_space); // Remove up to 3 leading spaces before we grab the line_type
     let mut new_block_type = line.line_type(current_block_type);
+
+    // if this line is still a list without the previous line, then that proves a new line item
+    // and we should grab the point where the content starts due to how lists are handled
+    if matches!(line.line_type(None), BlockType::List(..)) {
+      continued_content_start = list_item_content_start(line) + blank_space;
+    }
 
     let mut handle_as_empty = false;
 
     if current_block_type.is_some() {
       let current_block_type = current_block_type.unwrap();
-      // if this is a numbered list, the count needs to be checked as otherwise it becomes 2 lists
-      if is_num_list_continuation(&current_block_type, &new_block_type, count) {
-        count += 1;
-        new_block_type = current_block_type;
+
+      // Some special list based handling
+      if current_block_type == new_block_type && currently_in_list {
+        // if the line doesn't have enough indentation and this is a list, don't include it as part of the line item if it is preceded by a new line
+        if line.is_empty() == false
+          && last_line_empty
+          && list_item_content_start(line) + blank_space < continued_content_start
+        {
+          new_block_type = line.line_type(None);
+        }
+        // if this is a numbered list, the count needs to be checked as otherwise it should become 2 lists
+        else if is_num_list_continuation(&current_block_type, &new_block_type, count) {
+          count += 1;
+          new_block_type = current_block_type;
+        }
       }
 
       // Has the previous block concluded
@@ -68,10 +92,13 @@ pub(crate) fn parse_tokens_with_context(
       let has_enough_to_push = current_block_type.allow_no_content() || current_block.len() > 0;
       let should_terminate = handle_as_empty || doesent_match;
 
+      // track if this line was empty for stacking purposes
+      last_line_empty = line.is_empty();
+
       // terminate existing block
       if has_enough_to_push && should_terminate {
         blocks.push(Block::new(current_block_type, current_block, context));
-        new_block_type = line.line_type(None); // Recheck the new line type
+        new_block_type = line.line_type(None); // This isn't a continuation, rethink the line type
         current_block = vec![];
         count = 0;
       }
@@ -102,6 +129,7 @@ pub(crate) fn parse_tokens_with_context(
     }
   }
 
+  // If this block type can be completely empty and you need to, push the empty block
   if current_block_type.is_some_and(|bt| bt.allow_no_content()) || current_block.len() > 0 {
     blocks.push(Block::new(
       current_block_type.unwrap(),

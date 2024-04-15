@@ -30,6 +30,7 @@ pub fn parse_line_items(
   let mut blocks: Vec<Block> = vec![];
   let mut current_block = vec![];
   let mut count = 0;
+  let mut last_line_start = 0;
 
   for line in lines.iter_mut() {
     let new_line_item = is_new_list_item(line, list_type, count);
@@ -38,19 +39,29 @@ pub fn parse_line_items(
       if current_block.len() > 0 {
         blocks.push(Block::new(BlockType::LineItem, current_block, context));
       }
-      line.trim_line_start(
-        line
-          .find_first(TokenType::Space)
-          .and_then(|v| Some(v + 1))
-          .unwrap_or(0),
-      );
+      last_line_start = list_item_content_start(&line);
+      line.trim_line_start(last_line_start);
       current_block = line.0.clone();
     } else {
       if current_block.len() > 0 {
         current_block.push(Token::NewLine);
       }
-      line.unindent();
-      current_block.append(&mut line.0.clone());
+
+      if line.is_empty() == false {
+        // If this line has been indented to the item start,
+        // remove that indentation only to allow for indented code blocks
+        println!(
+          "list item line looks like with expected start point {last_line_start}: {:?}",
+          line
+        );
+        if line.0.len() > last_line_start && Line(line.0[0..last_line_start].to_vec()).is_empty() {
+          line.trim_line_start(last_line_start);
+        }
+        println!("list item line looks like after trimming: {:?}", line);
+
+        // Add the trimmed content to the block
+        current_block.append(&mut line.0.clone());
+      }
     }
   }
   if current_block.len() > 0 {
@@ -76,4 +87,20 @@ fn is_new_list_item(line: &Line, list_type: ListType, count: usize) -> bool {
       _ => false,
     },
   }
+}
+
+fn first_char_after_list_indicator(line: &Line) -> usize {
+  line
+    .find_first(TokenType::Space)
+    .and_then(|v| Some(v + 1))
+    .unwrap_or(0)
+}
+
+pub fn list_item_content_start(line: &Line) -> usize {
+  let first_char_after_indicator = first_char_after_list_indicator(line);
+  line.0[first_char_after_indicator..]
+    .iter()
+    .position(|token| token != &Token::Space)
+    .unwrap_or(line.0.len())
+    + first_char_after_indicator
 }

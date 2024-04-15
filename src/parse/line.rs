@@ -39,16 +39,21 @@ impl Line {
   }
 
   /// Counts the amount of leading spaces (up to 3) at the start of a line
+  pub fn unindented_leading_spaces(&self) -> usize {
+    let space = self.leading_spaces();
+    match space {
+      n if n > 3 => 0, // Acording to spec, up to 3 leading spaces can be ignored
+      _ => space,
+    }
+  }
+
+  /// Counts the amount of leading spaces (without cap) at the start of a line
   pub fn leading_spaces(&self) -> usize {
-    let mut count = 0;
-    while self.0.get(count) == Some(&Token::Space) && count < 4 {
-      count += 1;
-    }
-    // Acording to spec, up to 3 leading spaces can be ignore
-    if count == 4 {
-      count = 0;
-    }
-    count
+    self
+      .0
+      .iter()
+      .position(|token| token != &Token::Space)
+      .unwrap_or(self.0.len())
   }
 
   /// Gets the block type for a line so that it can be parsed
@@ -203,7 +208,7 @@ impl Line {
 
   /// Remove the starting chars that label a block as a given type
   pub fn remove_type_chars(&mut self, line_type: &BlockType) {
-    let leading_spaces = self.leading_spaces();
+    let leading_spaces = self.unindented_leading_spaces();
     match line_type {
       BlockType::Paragraph => {
         self.remove_all_indentation();
