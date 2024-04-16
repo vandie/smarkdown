@@ -33,13 +33,13 @@ pub fn parse_line_items(
   let mut last_line_start = 0;
 
   for line in lines.iter_mut() {
-    let new_line_item = is_new_list_item(line, list_type, count);
-    if new_line_item {
+    let new_line_item = is_new_list_item(line, list_type, count) || last_line_start == 0;
+    if new_line_item && !is_indented_past_start(&line, last_line_start) {
+      last_line_start = list_item_content_start(&line);
       count += 1;
       if current_block.len() > 0 {
         blocks.push(Block::new(BlockType::LineItem, current_block, context));
       }
-      last_line_start = list_item_content_start(&line);
       line.trim_line_start(last_line_start);
       current_block = line.0.clone();
     } else {
@@ -50,14 +50,9 @@ pub fn parse_line_items(
       if line.is_empty() == false {
         // If this line has been indented to the item start,
         // remove that indentation only to allow for indented code blocks
-        println!(
-          "list item line looks like with expected start point {last_line_start}: {:?}",
-          line
-        );
-        if line.0.len() > last_line_start && Line(line.0[0..last_line_start].to_vec()).is_empty() {
+        if is_indented_past_start(&line, last_line_start) {
           line.trim_line_start(last_line_start);
         }
-        println!("list item line looks like after trimming: {:?}", line);
 
         // Add the trimmed content to the block
         current_block.append(&mut line.0.clone());
@@ -69,6 +64,16 @@ pub fn parse_line_items(
   }
 
   blocks
+}
+
+/// Returns true if first none space char is after `last_line_start`
+///
+/// If the `last_line_start` value is 0, will always return false
+fn is_indented_past_start(line: &Line, last_line_start: usize) -> bool {
+  if last_line_start == 0 {
+    return false;
+  }
+  line.0.len() > last_line_start && Line(line.0[0..last_line_start].to_vec()).is_empty()
 }
 
 /// Determins if a line should be rendered as a new list item
@@ -90,10 +95,13 @@ fn is_new_list_item(line: &Line, list_type: ListType, count: usize) -> bool {
 }
 
 fn first_char_after_list_indicator(line: &Line) -> usize {
-  line
-    .find_first(TokenType::Space)
-    .and_then(|v| Some(v + 1))
-    .unwrap_or(0)
+  let leading_spaces = line.leading_spaces();
+  for (i, token) in line.0.iter().enumerate() {
+    if token == &Token::Space && i >= leading_spaces {
+      return i + 1;
+    }
+  }
+  return 0;
 }
 
 pub fn list_item_content_start(line: &Line) -> usize {

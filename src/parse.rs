@@ -122,9 +122,19 @@ pub(crate) fn parse_tokens_with_context(
     }
 
     if handle_as_empty == false {
+      // If this is not the first line within this block, add a new line
       if current_block.len() > 0 {
         current_block.push(Token::NewLine);
       }
+
+      // If this is a list we want to add our indentation back in
+      if matches!(current_block_type, Some(BlockType::List(..))) {
+        let mut fixed_line = vec![Token::Space; blank_space];
+        fixed_line.append(&mut line.0);
+        line.0 = fixed_line;
+      }
+
+      // Add the line to our current block
       current_block.append(&mut line.0);
     }
   }

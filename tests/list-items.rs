@@ -77,3 +77,10 @@ fn example_263() {
   let expected_html = "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
+
+#[test]
+fn example_264() {
+  let example_string = "- foo\n  - bar\n    - baz\n      - boo";
+  let expected_html = "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz\n<ul>\n<li>boo</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}

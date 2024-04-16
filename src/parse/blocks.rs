@@ -152,7 +152,7 @@ impl Block {
       Block::LineItem { inner, .. } => {
         let blocks = Block::vec_as_html(inner, loose_mode);
         println!("blocks: {}", inner.len());
-        if loose_mode == false && matches!(inner[..], [Block::Paragraph(..)]) {
+        if loose_mode == false && matches!(inner[0], Block::Paragraph(..)) {
           return format!("<li>{blocks}</li>");
         }
         return format!("<li>\n{blocks}\n</li>");
