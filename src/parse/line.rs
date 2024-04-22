@@ -146,7 +146,12 @@ impl Line {
           return BlockType::List(ListType::BracketedNumber(grab_number(&self, 0).to_usize()))
         }
         [TokenType::Number, TokenType::Dot, TokenType::Space] => {
-          return BlockType::List(ListType::Number(grab_number(&self, 0).to_usize()))
+          let num = grab_number(&self, 0);
+          // Note that ordered list start numbers must be nine digits or less:
+          if num.0.len() > 9 {
+            continue;
+          }
+          return BlockType::List(ListType::Number(num.to_usize()));
         }
         _ => {}
       }

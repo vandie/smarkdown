@@ -150,9 +150,11 @@ impl Block {
         )
       }
       Block::LineItem { inner, .. } => {
-        let blocks = Block::vec_as_html(inner, loose_mode);
-        println!("blocks: {}", inner.len());
+        let mut blocks = Block::vec_as_html(inner, loose_mode);
         if loose_mode == false && matches!(inner[0], Block::Paragraph(..)) {
+          if matches!(inner.last(), Some(Block::List { .. })) {
+            blocks += "\n";
+          }
           return format!("<li>{blocks}</li>");
         }
         return format!("<li>\n{blocks}\n</li>");

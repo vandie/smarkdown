@@ -84,3 +84,53 @@ fn example_264() {
   let expected_html = "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz\n<ul>\n<li>boo</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
+
+#[test]
+fn example_265() {
+  let example_string = "123456789. ok";
+  let expected_html = "<ol start=\"123456789\">\n<li>ok</li>\n</ol>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
+
+#[test]
+fn example_266() {
+  let example_string = "1234567890. not ok";
+  let expected_html = "<p>1234567890. not ok</p>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
+
+#[test]
+fn example_267() {
+  let example_string = "0. ok";
+  let expected_html = "<ol start=\"0\">\n<li>ok</li>\n</ol>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
+
+#[test]
+fn example_268() {
+  let example_string = "003. ok";
+  let expected_html = "<ol start=\"3\">\n<li>ok</li>\n</ol>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
+
+#[test]
+fn example_269() {
+  let example_string = "-1. not ok";
+  let expected_html = "<p>-1. not ok</p>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
+
+#[test]
+fn example_270() {
+  let example_string = "- foo\n\n      bar";
+  let expected_html = "<ul>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ul>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}
+
+#[test]
+fn example_271() {
+  let example_string = "  10.  foo\n\n           bar";
+  let expected_html =
+    "<ol start=\"10\">\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ol>";
+  assert_eq!(parse(example_string).as_html(), expected_html);
+}

@@ -103,39 +103,9 @@ fn blockquote_basic() {
 }
 
 #[test]
-fn list_basic() {
-  let example_string = "- item 1\n- item 2\n\t- sub item 1";
-  let expected_html =
-    "<ul>\n<li>item 1</li>\n<li>item 2\n<ul>\n<li>sub item 1</li>\n</ul></li>\n</ul>";
-  assert_eq!(parse(example_string).as_html(), expected_html);
-}
-
-#[test]
-fn loose_list() {
-  let example_string = "- item 1\n\n- item 2\n\t- sub item 1";
-  let expected_html =
-    "<ul>\n<li>\n<p>item 1</p>\n</li>\n<li>\n<p>item 2</p>\n<ul>\n<li>sub item 1</li>\n</ul>\n</li>\n</ul>";
-  assert_eq!(parse(example_string).as_html(), expected_html);
-}
-
-#[test]
 fn single_level_list() {
   let example_string = "- item 1\n\n- item 2";
   let expected_html = "<ul>\n<li>\n<p>item 1</p>\n</li>\n<li>\n<p>item 2</p>\n</li>\n</ul>";
-  assert_eq!(parse(example_string).as_html(), expected_html);
-}
-
-#[test]
-fn num_list() {
-  let example_string = "1. item 1\n2. item 2";
-  let expected_html = "<ol>\n<li>item 1</li>\n<li>item 2</li>\n</ol>";
-  assert_eq!(parse(example_string).as_html(), expected_html);
-}
-
-#[test]
-fn num_list_none_1() {
-  let example_string = "3. item 1\n4. item 2";
-  let expected_html = "<ol start=\"3\">\n<li>item 1</li>\n<li>item 2</li>\n</ol>";
   assert_eq!(parse(example_string).as_html(), expected_html);
 }
 
